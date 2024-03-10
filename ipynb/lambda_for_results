@@ -1,0 +1,48 @@
+import boto3
+from botocore.exceptions import ClientError
+import json
+
+ 
+
+def lambda_handler(event, context):
+    if 'id' in event:
+        unique_id = event['id']
+    else:
+        return {
+            'statusCode': 400,
+            'body': json.dumps('Missing unique ID parameter.')
+        }
+    
+    s3 = boto3.client('s3')
+    bucket_name = 'mycloudcomputingproject'
+    results_prefix = f's3://mycloudcomputingproject/results/{unique_id}'  # Adjusted prefix
+
+     try:
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=results_prefix)
+    
+        if 'Contents' in response and response['Contents']:
+            object_key = response['Contents'][0]['Key']
+            file = s3.get_object(Bucket=bucket_name, Key=object_key)
+            file_content = file['Body'].read().decode('utf-8')
+            
+            # Parse JSON content if the file is a JSON file
+            if object_key.endswith('.json'):
+                file_content = json.loads(file_content)
+
+ 
+
+            return {
+                'statusCode': 200,
+                'body': json.dumps(file_content)
+            }
+
+      else:
+                  return {
+                      'statusCode': 404,
+                      'body': json.dumps('No results found for the provided ID.')
+                  }
+          except ClientError as e:
+              return {
+                  'statusCode': 500,
+                  'body': json.dumps(f"Error fetching results: {str(e)}")
+              }
